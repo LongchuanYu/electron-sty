@@ -2,47 +2,55 @@
 const {app, BrowserWindow, ipcMain, Menu, Tray} = require('electron')
 const { exec, spawn, execFile } = require('child_process');
 const path = require('path');
-const { setDefaultResultOrder } = require('dns');
+const pty = require('node-pty');
+const os = require('os');
+
 
 let mainWindow
 let logWindow
-let backend
+let backendProcess
+let shell = os.platform() === "win32" ? "powershell.exe" : "bash";
 
 function createWindow () {
   // create the log window.
-  // logWindow = new BrowserWindow({
-  //   width: 800,
-  //   height: 600,
-  //   webPreferences: {
-  //     nodeIntegration: true,
-  //     contextIsolation: false,
-  //   }
-  // });
-  // logWindow.loadFile('log/index.html');
-  // logWindow.webContents.openDevTools();
-  // logWindow.on('close', (event) => {
-  //   logWindow.hide();
-  //   logWindow.setSkipTaskbar(true);
-  //   event.preventDefault();
-  // })
+  logWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    }
+  });
+  logWindow.loadFile('src/index.html');
+  logWindow.webContents.openDevTools();
+  logWindow.on('close', (event) => {
+    logWindow.hide();
+    logWindow.setSkipTaskbar(true);
+    event.preventDefault();
+  })
+  logWindow.once('ready-to-show', () => {
+    startBackend();
+  })
 
   // Create the browser window.
   mainWindow = new BrowserWindow({
     minWidth: 1366,
     minHeight: 760,
     webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: true
     }
   })
   mainWindow.loadURL('http://localhost:4200')
-  // mainWindow.on('close', () => { 
-  //   destoryWindow(logWindow);
-  //   killBackend();
-  // })
-  // mainWindow.once('ready-to-show', () => {
-  //   logWindow.hide();
-  // })
+  // mainWindow.loadFile('src/index.html')
+  mainWindow.on('close', () => { 
+    destoryWindow(logWindow);
+    killBackend();
+  })
+  mainWindow.once('ready-to-show', () => {
+    logWindow.hide();
+  })
 }
 
 function createTray (win) {
@@ -60,7 +68,7 @@ function destoryWindow(win) {
 }
 
 function killBackend() {
-  if (backend) {
+  if (backendProcess) {
     exec('kill -9 $(lsof -t -i:7007)', (error, stdout, stderr) => {
       if (error) {
         console.log('kill failed..')
@@ -74,31 +82,26 @@ function killBackend() {
 }
 
 function startBackend() {
-  backend = spawn('python -u', ['/home/xyz/xyz-studio-back/app.py'], {
-    shell: true
-  })
-  backend.stdout.on('data', (data) => {
-    // console.log(data.toString('utf8'))
-    if (!logWindow.isDestroyed()) {
-      console.log(data.toString('utf-8'));
-      logWindow.webContents.send('send-backend-log', data.toString('utf-8'));
-    }
-  })
-  backend.stderr.on('data', (data) => {
-    if (!logWindow.isDestroyed()) {
-      console.log(data.toString('utf-8'));
-      logWindow.webContents.send('send-backend-log', data.toString('utf-8'));
-    }
-  })
+  backendProcess = pty.spawn(shell, [], {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 24,
+    cwd: process.env.HOME,
+    env: process.env
+  });
+  backendProcess.write('python -u /home/xyz/xyz-studio-back/app.py');
+  backendProcess.write('\r\n');
+  backendProcess.onData((data) => {
+    logWindow.webContents.send("pty-to-xterm", data);
+  });
 }
-
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   createWindow();
-  // startBackend();
+  mainWindow.webContents.openDevTools()
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -143,4 +146,8 @@ ipcMain.on('show-context-menu', (event) => {
   ]
   const menu = Menu.buildFromTemplate(template)
   menu.popup(BrowserWindow.fromWebContents(event.sender))
+})
+
+ipcMain.on('xterm-to-pty', (e, data) => {
+  backendProcess.write(data);
 })
