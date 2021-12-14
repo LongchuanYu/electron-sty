@@ -10,21 +10,21 @@ let backend
 
 function createWindow () {
   // create the log window.
-  logWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    }
-  });
-  logWindow.loadFile('log/index.html');
-  logWindow.webContents.openDevTools();
-  logWindow.on('close', (event) => {
-    logWindow.hide();
-    logWindow.setSkipTaskbar(true);
-    event.preventDefault();
-  })
+  // logWindow = new BrowserWindow({
+  //   width: 800,
+  //   height: 600,
+  //   webPreferences: {
+  //     nodeIntegration: true,
+  //     contextIsolation: false,
+  //   }
+  // });
+  // logWindow.loadFile('log/index.html');
+  // logWindow.webContents.openDevTools();
+  // logWindow.on('close', (event) => {
+  //   logWindow.hide();
+  //   logWindow.setSkipTaskbar(true);
+  //   event.preventDefault();
+  // })
 
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -36,13 +36,13 @@ function createWindow () {
     }
   })
   mainWindow.loadURL('http://localhost:4200')
-  mainWindow.on('close', () => { 
-    destoryWindow(logWindow);
-    killBackend();
-  })
-  mainWindow.once('ready-to-show', () => {
-    logWindow.hide();
-  })
+  // mainWindow.on('close', () => { 
+  //   destoryWindow(logWindow);
+  //   killBackend();
+  // })
+  // mainWindow.once('ready-to-show', () => {
+  //   logWindow.hide();
+  // })
 }
 
 function createTray (win) {
@@ -98,7 +98,7 @@ function startBackend() {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   createWindow();
-  startBackend();
+  // startBackend();
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
